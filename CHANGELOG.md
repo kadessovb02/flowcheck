@@ -2,6 +2,15 @@
 
 All notable changes will be documented here. This project follows semantic versioning once the first stable release is published.
 
+## [0.2.1] - 2026-09-24
+
+### Changed
+
+- Package name is now `@kadessovb/flowcheck` for publication under the maintainer-owned npm organization.
+- Quickstart and agent commands use the npm package directly, without a project installation.
+- MCP configuration pins the published npm package version.
+- Release packaging supports the new scoped package name.
+
 ## [0.2.0] - 2026-09-24
 
 ### Added

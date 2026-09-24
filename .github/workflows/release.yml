@@ -36,7 +36,7 @@ jobs:
         run: |
           mkdir release
           npm pack --pack-destination release
-          mv release/flowcheck-local-*.tgz release/flowcheck.tgz
+          mv release/*.tgz release/flowcheck.tgz
           cd release
           sha256sum flowcheck.tgz > SHA256SUMS
       - name: Publish tested package

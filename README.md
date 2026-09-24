@@ -10,6 +10,7 @@
 
 <p align="center">
   <a href="https://github.com/kadessovb02/flowcheck/actions/workflows/ci.yml"><img alt="CI" src="https://github.com/kadessovb02/flowcheck/actions/workflows/ci.yml/badge.svg"></a>
+  <a href="https://www.npmjs.com/package/@kadessovb/flowcheck"><img alt="npm version" src="https://img.shields.io/npm/v/@kadessovb/flowcheck"></a>
   <a href="LICENSE"><img alt="License: Apache-2.0" src="https://img.shields.io/badge/license-Apache--2.0-111827"></a>
   <img alt="Node 22+" src="https://img.shields.io/badge/node-%3E%3D22.18-339933?logo=node.js&logoColor=white">
   <img alt="Playwright" src="https://img.shields.io/badge/browser-Playwright-2EAD33?logo=playwright&logoColor=white">
@@ -43,29 +44,29 @@ Use it for small smoke checks such as signup, form submission, and navigation. T
 Requires **Node.js 22.18+** on macOS or Linux. Run from any directory:
 
 ```bash
-npx --yes https://github.com/kadessovb02/flowcheck/releases/download/v0.2.0/flowcheck.tgz demo
+npx --yes @kadessovb/flowcheck demo
 ```
 
-That is the complete setup: npm fetches the prebuilt release, FlowCheck downloads Chromium if missing, starts its bundled app on a free port, checks a real user journey, and saves evidence in your current directory. Later runs reuse the caches. No Git clone, build step, account, or AI subscription is needed.
+That is the complete setup: npm fetches the published package, FlowCheck downloads Chromium if missing, starts its bundled app on a free port, checks a real user journey, and saves evidence in your current directory. Later runs reuse the caches. No Git clone, build step, account, or AI subscription is needed.
 
 First use requires an internet connection and space for Chromium. Minimal Linux installations may also need system libraries: run the same command with `setup --with-deps` instead of `demo`. This explicit command may request administrator privileges; regular runs never install OS packages.
 
-For everyday use, add FlowCheck to your project once:
+No project installation is required for the commands below. To pin FlowCheck in your project dependencies instead:
 
 ```bash
-npm install --save-dev https://github.com/kadessovb02/flowcheck/releases/download/v0.2.0/flowcheck.tgz
+npm install --save-dev @kadessovb/flowcheck
 npx flowcheck --help
 ```
 
-The examples below use this project installation. You can also replace `npx flowcheck` with the full release command above. The package is distributed through [GitHub Releases](https://github.com/kadessovb02/flowcheck/releases); it is not yet on the npm registry.
+With a project installation, you can use `npx flowcheck` as a shorter alias. Published packages are available on [npm](https://www.npmjs.com/package/@kadessovb/flowcheck); versioned archives are also available through [GitHub Releases](https://github.com/kadessovb02/flowcheck/releases).
 
 ## Check your app without an agent
 
 Start your application, then run:
 
 ```bash
-npx flowcheck check http://localhost:3000
-npx flowcheck check http://localhost:3000/login --text "Sign in"
+npx @kadessovb/flowcheck check http://localhost:3000
+npx @kadessovb/flowcheck check http://localhost:3000/login --text "Sign in"
 ```
 
 A page check requires a successful HTTP navigation and a visible page; `--text` also checks for the expected visible text. **It does not claim to test every user journey.** Use a scenario for interactions such as filling and submitting a form.
@@ -77,11 +78,11 @@ Add `--headed` to watch Chromium, or `--json` for a machine-readable result. Val
 From the project you want to test, choose your installed client:
 
 ```bash
-npx flowcheck connect codex
+npx @kadessovb/flowcheck connect codex
 ```
 
 ```bash
-npx flowcheck connect claude
+npx @kadessovb/flowcheck connect claude
 ```
 
 The command prepares Chromium and uses the client's CLI to register a version-pinned stdio MCP server. It sets this project as the workspace and uses a project-specific server name, so connecting another project does not replace it. Codex stores the registration in its user configuration; Claude Code uses local project scope. Restart the client session after connecting. The `codex` or `claude` command must be on your PATH.
@@ -99,16 +100,16 @@ The agent can pass a scenario **directly to MCP**. No manual JSON file is requir
 | `flowcheck_run_scenario` | Runs inline JSON or a workspace file and returns step results and evidence paths |
 | `flowcheck_latest_report` | Reads the latest completed result in the session |
 
-For another client that supports **local stdio MCP**, run `npx flowcheck config` and copy the generated entry into its MCP configuration. It includes your workspace path. `npx flowcheck mcp` also starts the server directly. Clients that only accept remote HTTP servers need a different transport; this release is local stdio only.
+For another client that supports **local stdio MCP**, run `npx @kadessovb/flowcheck config` and copy the generated entry into its MCP configuration. It includes your workspace path. `npx @kadessovb/flowcheck mcp` also starts the server directly. Clients that only accept remote HTTP servers need a different transport; this release is local stdio only.
 
-Agents with terminal access can use `npx flowcheck check ... --json` and `npx flowcheck run ... --json` without MCP. FlowCheck runs the checks; your chosen agent provides the reasoning.
+Agents with terminal access can use `npx @kadessovb/flowcheck check ... --json` and `npx @kadessovb/flowcheck run ... --json` without MCP. FlowCheck runs the checks; your chosen agent provides the reasoning.
 
 Configuration references: [Codex MCP](https://developers.openai.com/codex/mcp), [Claude Code MCP](https://code.claude.com/docs/en/mcp).
 
 ## See it catch a failure
 
 ```bash
-npx flowcheck demo --broken
+npx @kadessovb/flowcheck demo --broken
 ```
 
 The demo app now shows an error when creating a workspace. The same assertions fail at `confirmation`, skip the remaining URL assertion, and save the failure screenshot and trace. `FAILED` and exit code **1** are expected here.
@@ -128,12 +129,12 @@ Evidence: .../.flowcheck/runs/<run-id>
   <img src="docs/assets/demo-failure.png" width="720" alt="Actual FlowCheck failure screenshot: the work email is masked and the demo shows a workspace creation error.">
 </p>
 
-This is a real screenshot from the public demo. Run `npx flowcheck demo` to see the journey pass, or add `--headed` to watch either version.
+This is a real screenshot from the public demo. Run `npx @kadessovb/flowcheck demo` to see the journey pass, or add `--headed` to watch either version.
 
 ## Save a repeatable journey
 
 ```bash
-npx flowcheck init --url http://localhost:3000
+npx @kadessovb/flowcheck init --url http://localhost:3000
 ```
 
 Edit the generated `flowcheck.scenario.json` to describe the journey you want to protect:
@@ -157,8 +158,8 @@ Edit the generated `flowcheck.scenario.json` to describe the journey you want to
 Replace the example labels and text with those in your application, then run:
 
 ```bash
-npx flowcheck validate flowcheck.scenario.json
-npx flowcheck run --headed
+npx @kadessovb/flowcheck validate flowcheck.scenario.json
+npx @kadessovb/flowcheck run --headed
 ```
 
 The same JSON object works as the `scenario` argument to the MCP validation and run tools. Alternatively, use `scenarioPath` for a file inside the configured workspace. See the [scenario reference](docs/scenario-format.md) for actions, locators, environment variables, and screenshot masking.
@@ -195,10 +196,10 @@ Already happy with a Playwright suite? Keep it. FlowCheck focuses on small smoke
 
 ## Troubleshooting
 
-- **Chromium download failed:** check your network, then run `npx flowcheck setup`.
-- **Missing Linux libraries:** run `npx flowcheck setup --with-deps` explicitly.
+- **Chromium download failed:** check your network, then run `npx @kadessovb/flowcheck setup`.
+- **Missing Linux libraries:** run `npx @kadessovb/flowcheck setup --with-deps` explicitly.
 - **Offline or managed environment:** provision Chromium with `setup` first, then set `FLOWCHECK_SKIP_BROWSER_INSTALL=1` to prevent automatic browser downloads. Cache/install the npm package as well.
-- **Agent CLI not found:** use `npx flowcheck config` for a manual MCP entry. An AI client is optional for all CLI checks.
+- **Agent CLI not found:** use `npx @kadessovb/flowcheck config` for a manual MCP entry. An AI client is optional for all CLI checks.
 - **Wrong application or port:** start your app separately and pass its exact URL. FlowCheck starts only its bundled demo automatically.
 
 ## Security and status

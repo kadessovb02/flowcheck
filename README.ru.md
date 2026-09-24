@@ -15,7 +15,7 @@ FlowCheck проверяет страницу или повторяет JSON-с�
 Нужен **Node.js 22.18+** на macOS или Linux:
 
 ```bash
-npx --yes https://github.com/kadessovb02/flowcheck/releases/download/v0.2.0/flowcheck.tgz demo
+npx --yes @kadessovb/flowcheck demo
 ```
 
 Команда скачает готовый пакет, при необходимости установит Chromium, запустит встроенное приложение на свободном порту и проверит создание workspace. Клонировать репозиторий и собирать TypeScript не нужно. Результаты сохраняются в `.flowcheck/runs/` в текущей папке. Пакет и браузер кешируются.
@@ -24,21 +24,21 @@ npx --yes https://github.com/kadessovb02/flowcheck/releases/download/v0.2.0/flow
 
 ## Для ежедневной работы
 
-Один раз добавьте инструмент в свой проект:
+Все команды ниже работают без установки в проект. Если хотите закрепить версию в зависимостях проекта:
 
 ```bash
-npm install --save-dev https://github.com/kadessovb02/flowcheck/releases/download/v0.2.0/flowcheck.tgz
+npm install --save-dev @kadessovb/flowcheck
 ```
 
-После этого используйте короткие команды ниже. Без установки в проект можно заменить `npx flowcheck` на полную команду с URL релиза. Пакет пока распространяется через [GitHub Releases](https://github.com/kadessovb02/flowcheck/releases), а не npm registry.
+После установки можно использовать короткий вариант `npx flowcheck`. Пакет доступен в [npm](https://www.npmjs.com/package/@kadessovb/flowcheck), архивы версий — в [GitHub Releases](https://github.com/kadessovb02/flowcheck/releases).
 
 ## Без AI-агента
 
 Запустите своё приложение, затем:
 
 ```bash
-npx flowcheck check http://localhost:3000
-npx flowcheck check http://localhost:3000/login --text "Sign in"
+npx @kadessovb/flowcheck check http://localhost:3000
+npx @kadessovb/flowcheck check http://localhost:3000/login --text "Sign in"
 ```
 
 Проверяются загрузка без HTTP-ошибки и видимость страницы. `--text` добавляет проверку ожидаемого текста. Это smoke-проверка страницы, а не проверка всех функций приложения. Для заполнения форм и других действий используйте сценарий.
@@ -50,11 +50,11 @@ npx flowcheck check http://localhost:3000/login --text "Sign in"
 Из папки своего проекта выполните команду для нужного клиента:
 
 ```bash
-npx flowcheck connect claude
+npx @kadessovb/flowcheck connect claude
 ```
 
 ```bash
-npx flowcheck connect codex
+npx @kadessovb/flowcheck connect codex
 ```
 
 FlowCheck подготовит Chromium и зарегистрирует MCP-сервер через установленный CLI клиента. Команды `claude` или `codex` должны быть доступны в PATH. Регистрация получает отдельное имя для каждого проекта: подключение второго проекта не заменяет первое. Codex сохраняет её в пользовательской конфигурации, Claude Code — в локальной области проекта. Перезапустите сессию клиента после подключения.
@@ -65,21 +65,21 @@ FlowCheck подготовит Chromium и зарегистрирует MCP-се
 
 Агент видит схему сценария в инструментах MCP и может передать его прямо в вызове — вручную писать JSON-файл не требуется. Полезный сценарий можно сохранить в проект, чтобы повторять его после следующих изменений.
 
-Для другого клиента с поддержкой **локального stdio MCP** выполните `npx flowcheck config` и перенесите полученную запись в его настройки. Клиенты, поддерживающие только удалённые HTTP-серверы, этим способом не подключаются.
+Для другого клиента с поддержкой **локального stdio MCP** выполните `npx @kadessovb/flowcheck config` и перенесите полученную запись в его настройки. Клиенты, поддерживающие только удалённые HTTP-серверы, этим способом не подключаются.
 
 Агент с доступом к терминалу может использовать обычный CLI с `--json`, без MCP.
 
 ## Повторяемый сценарий
 
 ```bash
-npx flowcheck init --url http://localhost:3000
+npx @kadessovb/flowcheck init --url http://localhost:3000
 ```
 
 Отредактируйте шаги в `flowcheck.scenario.json`, затем:
 
 ```bash
-npx flowcheck validate flowcheck.scenario.json
-npx flowcheck run --headed
+npx @kadessovb/flowcheck validate flowcheck.scenario.json
+npx @kadessovb/flowcheck run --headed
 ```
 
 Пример и справка: [английский README](README.md#save-a-repeatable-journey), [формат сценариев](docs/scenario-format.md). Поддерживаются переходы, клики, заполнение, выбор, checkbox, клавиши, ожидания и проверки текста, URL и видимости.
@@ -87,7 +87,7 @@ npx flowcheck run --headed
 ## Посмотрите, как находится ошибка
 
 ```bash
-npx flowcheck demo --broken
+npx @kadessovb/flowcheck demo --broken
 ```
 
 В этом режиме demo-приложение выдаёт ошибку создания workspace. Проверки остаются прежними: шаг `confirmation` падает, следующие шаги не выполняются, сохраняются скриншот и trace. `FAILED` и код **1** здесь ожидаемы.
@@ -104,7 +104,7 @@ npx flowcheck demo --broken
 
 Проверяйте только системы, на тестирование которых есть разрешение. Маски скриншотов **не очищают trace-файлы, URL и сообщения об ошибках**. Телеметрии FlowCheck нет; загрузка пакета и браузера обращается к серверам их распространения. [Политика безопасности](SECURITY.md).
 
-Если браузер не скачался, выполните `npx flowcheck setup`. Для подготовленного офлайн-окружения `FLOWCHECK_SKIP_BROWSER_INSTALL=1` запрещает автоматическую загрузку Chromium; сам npm-пакет также должен быть установлен или закеширован.
+Если браузер не скачался, выполните `npx @kadessovb/flowcheck setup`. Для подготовленного офлайн-окружения `FLOWCHECK_SKIP_BROWSER_INSTALL=1` запрещает автоматическую загрузку Chromium; сам npm-пакет также должен быть установлен или закеширован.
 
 ## Помочь проекту
 

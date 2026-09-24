@@ -1,6 +1,6 @@
 {
-  "name": "@flowcheck/local",
-  "version": "0.2.0",
+  "name": "@kadessovb/flowcheck",
+  "version": "0.2.1",
   "description": "Deterministic local browser testing with Playwright, evidence, and MCP.",
   "type": "module",
   "license": "Apache-2.0",

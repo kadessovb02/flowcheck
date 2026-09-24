@@ -50,4 +50,4 @@ FLOWCHECK_TEST_FRESH_BROWSER=1 npm run test:package
 
 ## Releases
 
-Update `package.json`, `package-lock.json`, the release URLs in the README files, and `docs/release-notes.md` together. Push the matching `v<version>` tag after the checks pass. The release workflow scans for secrets, tests the package, and publishes `flowcheck.tgz` and its checksum from that tagged commit. npm registry publishing is a separate maintainer operation.
+Update `package.json`, `package-lock.json`, `CHANGELOG.md`, and `docs/release-notes.md` together. Push the matching `v<version>` tag after the checks pass. The release workflow scans for secrets, tests the package, and publishes `flowcheck.tgz` and its checksum from that tagged commit. Publish that tested archive to npm as a separate maintainer operation, then verify `npx --yes @kadessovb/flowcheck@<version> demo --json` from outside the repository.
