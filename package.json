@@ -1,0 +1,57 @@
+{
+  "name": "@flowcheck/local",
+  "version": "0.1.0",
+  "description": "Deterministic local browser testing with Playwright, evidence, and MCP.",
+  "type": "module",
+  "license": "Apache-2.0",
+  "private": true,
+  "engines": {
+    "node": ">=22.18"
+  },
+  "bin": {
+    "flowcheck": "dist/src/cli.js",
+    "flowcheck-mcp": "dist/src/mcp.js"
+  },
+  "files": [
+    "dist",
+    "README.md",
+    "LICENSE"
+  ],
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "check": "npm run typecheck && npm run test:unit && npm run test:e2e",
+    "demo": "node examples/demo/server.mjs",
+    "flowcheck": "node --experimental-strip-types src/cli.ts",
+    "mcp": "node --experimental-strip-types src/mcp.ts",
+    "quickstart": "node scripts/quickstart.mjs",
+    "test": "npm run test:unit && npm run test:e2e",
+    "test:unit": "node --test --experimental-strip-types tests/*.unit.test.ts",
+    "test:e2e": "node --test --experimental-strip-types tests/*.e2e.test.ts",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "1.30.1",
+    "playwright": "1.63.0",
+    "zod": "4.6.5"
+  },
+  "devDependencies": {
+    "@types/node": "^22.18.0",
+    "typescript": "^5.9.0"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/kadessovb02/flowcheck.git"
+  },
+  "bugs": {
+    "url": "https://github.com/kadessovb02/flowcheck/issues"
+  },
+  "homepage": "https://github.com/kadessovb02/flowcheck#readme",
+  "keywords": [
+    "testing",
+    "playwright",
+    "mcp",
+    "qa",
+    "browser-automation",
+    "e2e"
+  ]
+}

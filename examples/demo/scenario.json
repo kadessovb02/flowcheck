@@ -1,0 +1,21 @@
+{
+  "version": 1,
+  "name": "Create a demo workspace",
+  "baseUrl": "http://127.0.0.1:4173",
+  "timeoutMs": 10000,
+  "evidence": {
+    "screenshots": "always",
+    "trace": true,
+    "mask": [
+      { "label": "Work email" }
+    ]
+  },
+  "steps": [
+    { "id": "open-home", "action": "goto", "path": "/" },
+    { "id": "enter-email", "action": "fill", "target": { "label": "Work email" }, "value": "developer@example.com", "sensitive": true },
+    { "id": "enter-company", "action": "fill", "target": { "label": "Company name" }, "value": "Acme" },
+    { "id": "create-workspace", "action": "click", "target": { "role": "button", "name": "Create workspace" } },
+    { "id": "confirmation", "action": "assertText", "text": "Workspace Acme is ready", "exact": true },
+    { "id": "welcome-url", "action": "assertUrl", "pattern": "http://127.0.0.1:4173/welcome" }
+  ]
+}
