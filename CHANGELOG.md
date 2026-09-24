@@ -12,3 +12,6 @@ All notable changes will be documented here. This project follows semantic versi
 - CLI for initialization, validation, and execution.
 - Local stdio MCP server for validation and execution.
 - Real-browser quickstart and regression suite.
+- Visible (`--headed`) and deliberately broken (`--broken`) quickstart modes.
+- Quickstart regression tests for failure evidence, unchanged scenarios, and occupied ports.
+- English and Russian onboarding with a real demo screenshot and tool comparison.

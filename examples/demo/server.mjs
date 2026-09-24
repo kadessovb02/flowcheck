@@ -1,6 +1,7 @@
 import http from 'node:http';
 
 const port = Number(process.env.PORT ?? 4173);
+const broken = process.env.FLOWCHECK_DEMO_BROKEN === '1';
 const html = `<!doctype html>
 <html lang="en">
 <head>
@@ -39,6 +40,13 @@ const html = `<!doctype html>
       event.preventDefault();
       const company = document.querySelector('#company').value;
       const result = document.querySelector('#result');
+      if (${broken}) {
+        result.textContent = 'Workspace creation failed. Please try again.';
+        result.style.color = '#991b1b';
+        result.style.background = '#fef2f2';
+        result.hidden = false;
+        return;
+      }
       result.textContent = 'Workspace ' + company + ' is ready';
       result.hidden = false;
       history.pushState({}, '', '/welcome');

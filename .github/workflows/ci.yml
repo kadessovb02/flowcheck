@@ -24,4 +24,13 @@ jobs:
       - run: npm run test:unit
       - run: npm run test:e2e
       - run: npm run build
+      - name: Upload public demo evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: demo-evidence
+          path: .flowcheck/runs/
+          include-hidden-files: true
+          if-no-files-found: ignore
+          retention-days: 7
       - run: npm audit --omit=dev --audit-level=high
