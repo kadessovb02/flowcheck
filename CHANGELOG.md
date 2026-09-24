@@ -2,7 +2,24 @@
 
 All notable changes will be documented here. This project follows semantic versioning once the first stable release is published.
 
-## [Unreleased]
+## [0.2.0] - 2026-09-24
+
+### Added
+
+- Prebuilt release package runnable through npx without cloning or building.
+- Automatic Chromium setup, explicit setup commands, and an offline opt-out.
+- Standalone URL checks, optional text assertions, and JSON CLI output.
+- Codex and Claude Code registration, generic MCP configuration, and inline MCP scenarios.
+- A bundled demo using a free port, with evidence saved in the caller's project.
+- Package smoke tests from a fresh npm cache and a tagged release workflow.
+
+### Changed
+
+- HTTP 4xx/5xx navigation responses fail the check.
+- MCP workspace boundaries use canonical paths, including symlinked projects.
+- The packaged command is `flowcheck`; start MCP with `flowcheck mcp`. The source MCP entry point remains available.
+
+## Initial developer preview
 
 ### Added
 

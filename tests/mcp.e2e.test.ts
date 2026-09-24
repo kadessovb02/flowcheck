@@ -19,6 +19,7 @@ test('MCP server lists tools and validates a workspace scenario over stdio', asy
     assert.deepEqual(listed.tools.map((tool) => tool.name), [
       'flowcheck_validate_scenario',
       'flowcheck_run_scenario',
+      'flowcheck_check_page',
       'flowcheck_latest_report',
     ]);
     const result = await client.callTool({

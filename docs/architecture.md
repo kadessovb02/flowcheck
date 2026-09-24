@@ -6,7 +6,7 @@ FlowCheck Local is deliberately smaller than the hosted FlowCheck platform.
 scenario.json ── validate ── policy ── Playwright ── authorized target
                                   └── evidence writer
 
-MCP client ── stdio ── workspace path guard ── same validator and runner
+MCP client ── stdio ── inline scenario or guarded workspace file ── same validator and runner
 ```
 
 ## Invariants
@@ -17,7 +17,8 @@ MCP client ── stdio ── workspace path guard ── same validator and ru
 4. Steps execute in order and stop at the first failure.
 5. Reports preserve the exact scenario digest and never convert failure into success.
 6. Environment-sourced values are not serialized into reports.
-7. MCP scenario paths must resolve inside `FLOWCHECK_WORKSPACE_ROOT`.
+7. MCP scenario paths must resolve inside the canonical workspace root; inline scenarios use the same validator.
+8. A missing Chromium is installed through the bundled Playwright CLI before a browser run; no model or FlowCheck account is involved. `FLOWCHECK_SKIP_BROWSER_INSTALL=1` disables automatic downloads.
 
 ## Open-source / hosted boundary
 

@@ -1,104 +1,118 @@
 #!/usr/bin/env node
-import { readFile, writeFile } from 'node:fs/promises';
+import { writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import process from 'node:process';
-import { loadScenario, runScenario } from './runner.ts';
-import { ScenarioValidationError, validateScenario } from './schema.ts';
-
-const VERSION = '0.1.0';
-
-const sample = {
-  version: 1,
-  name: 'My first FlowCheck',
-  baseUrl: 'http://127.0.0.1:3000',
-  evidence: { screenshots: 'on-failure', trace: true },
-  steps: [
-    { id: 'open-home', action: 'goto', path: '/' },
-    { id: 'page-loaded', action: 'assertText', text: 'Welcome' },
-  ],
-};
+import { parseArgs } from 'node:util';
+import { installBrowser, ensureBrowser } from './browser.ts';
+import { pageScenario } from './check.ts';
+import { connect } from './connect.ts';
+import { runDemo } from './demo.ts';
+import { releasePackage, version } from './package.ts';
+import { loadScenario, runScenario, type RunReport } from './runner.ts';
 
 function help(): void {
   process.stdout.write(`
-FlowCheck Local ${VERSION}
+FlowCheck Local ${version}
 
-Deterministic browser checks with Playwright evidence.
+Browser checks for you and your coding agent. No account or API key required.
 
 Usage:
-  flowcheck init [scenario.json]
-  flowcheck validate <scenario.json>
-  flowcheck run <scenario.json> [--headed] [--output <directory>]
+  flowcheck check <url> [--text <expected text>] [--headed] [--json]
+  flowcheck demo [--headed] [--broken] [--json]
+  flowcheck init [scenario.json] [--url <url>]
+  flowcheck validate <scenario.json> [--json]
+  flowcheck run [scenario.json] [--headed] [--output <directory>] [--json]
+  flowcheck connect <codex|claude> [--workspace <directory>]
+  flowcheck config [--workspace <directory>]
+  flowcheck mcp [--workspace <directory>]
+  flowcheck setup [--with-deps]
   flowcheck --version
 
-Examples:
-  flowcheck init
-  flowcheck run flowcheck.scenario.json --headed
-  flowcheck validate examples/demo/scenario.json
-
+Chromium downloads automatically on the first browser run and is then cached.
+Evidence is saved in .flowcheck/runs/ in your current project.
+--broken deliberately fails the demo with exit code 1.
+check verifies page loading and optional text, not every user journey.
 No telemetry is collected. Run only against systems you are authorized to test.
 `);
 }
 
-function option(args: string[], name: string): string | undefined {
-  const index = args.indexOf(name);
-  if (index === -1) return undefined;
-  const value = args[index + 1];
-  if (!value || value.startsWith('--')) throw new Error(`${name} requires a value`);
-  return value;
+function printReport(report: RunReport, json: boolean): void {
+  if (json) process.stdout.write(`${JSON.stringify(report)}\n`);
+  else {
+    process.stdout.write(`\nFlowCheck · ${report.scenario.name}\nTarget: ${report.baseUrl}\nSteps:  ${report.steps.length}\n\n`);
+    for (const step of report.steps) {
+      process.stdout.write(`${step.status === 'passed' ? '✓' : '✗'} ${step.id} · ${step.action} · ${step.durationMs}ms\n`);
+    }
+    process.stdout.write(`\n${report.status.toUpperCase()} · ${report.durationMs}ms\nEvidence: ${report.artifacts.directory}\n`);
+    if (report.error) process.stdout.write(`Error: ${report.error.message}\n`);
+  }
+  if (report.status === 'failed') process.exitCode = 1;
 }
 
 async function main(): Promise<void> {
-  const args = process.argv.slice(2);
-  const command = args[0];
-  if (!command || command === 'help' || command === '--help' || command === '-h') { help(); return; }
-  if (command === '--version' || command === '-v') { process.stdout.write(`${VERSION}\n`); return; }
-
+  const { positionals, values } = parseArgs({ allowPositionals: true, options: {
+    help: { type: 'boolean', short: 'h' }, version: { type: 'boolean', short: 'v' },
+    headed: { type: 'boolean' }, broken: { type: 'boolean' }, json: { type: 'boolean' },
+    output: { type: 'string' }, url: { type: 'string' }, text: { type: 'string' },
+    workspace: { type: 'string' }, 'with-deps': { type: 'boolean' },
+  } });
+  if (values.version) { process.stdout.write(`${version}\n`); return; }
+  const [command, argument, ...extra] = positionals;
+  if (values.help || !command || command === 'help') { help(); return; }
+  if (extra.length) throw new Error('Too many arguments. Run flowcheck --help.');
+  const json = values.json ?? false;
+  const workspace = path.resolve(values.workspace ?? process.cwd());
+  if (command === 'setup') { await installBrowser(values['with-deps']); return; }
+  if (command === 'mcp') {
+    process.env.FLOWCHECK_WORKSPACE_ROOT = values.workspace ? workspace : process.env.FLOWCHECK_WORKSPACE_ROOT ?? workspace;
+    await import('./mcp.ts');
+    return;
+  }
+  if (command === 'config') {
+    process.stdout.write(`${JSON.stringify({ mcpServers: { flowcheck: {
+      command: 'npx', args: ['--yes', releasePackage, 'mcp', '--workspace', workspace],
+    } } }, null, 2)}\n`);
+    return;
+  }
+  if (command === 'connect') {
+    if (!argument || !['codex', 'claude'].includes(argument)) throw new Error('Choose a client: flowcheck connect codex or flowcheck connect claude.');
+    await ensureBrowser();
+    await connect(argument, workspace);
+    return;
+  }
   if (command === 'init') {
-    const destination = path.resolve(args[1] ?? 'flowcheck.scenario.json');
+    const destination = path.resolve(argument ?? 'flowcheck.scenario.json');
+    const sample = pageScenario(values.url ?? 'http://127.0.0.1:3000', values.text);
     await writeFile(destination, `${JSON.stringify(sample, null, 2)}\n`, { flag: 'wx' });
-    process.stdout.write(`Created ${destination}\n`);
+    process.stdout.write(`Created ${destination}\nRun it with: flowcheck run ${JSON.stringify(destination)}\n`);
     return;
   }
-
-  const fileArg = args[1];
-  if (!fileArg || fileArg.startsWith('--')) throw new Error(`${command} requires a scenario file`);
-  const scenarioFile = path.resolve(fileArg);
-
-  if (command === 'validate') {
-    const parsed = JSON.parse(await readFile(scenarioFile, 'utf8')) as unknown;
-    const scenario = validateScenario(parsed);
-    process.stdout.write(`✓ ${scenario.name}: ${scenario.steps.length} steps are valid\n`);
+  if (command === 'demo') {
+    printReport(await runDemo({ headed: values.headed, broken: values.broken, outputDir: values.output }), json);
     return;
   }
-
-  if (command === 'run') {
+  if (command === 'check') {
+    if (!argument) throw new Error('Usage: flowcheck check <url> [--text <expected text>]');
+    printReport(await runScenario(pageScenario(argument, values.text), { headed: values.headed, outputDir: values.output }), json);
+    return;
+  }
+  if (command === 'validate' || command === 'run') {
+    if (command === 'validate' && !argument) throw new Error('validate requires a scenario file');
+    const scenarioFile = path.resolve(argument ?? 'flowcheck.scenario.json');
     const scenario = await loadScenario(scenarioFile);
-    process.stdout.write(`\nFlowCheck · ${scenario.name}\n`);
-    process.stdout.write(`Target: ${scenario.baseUrl}\nSteps:  ${scenario.steps.length}\n\n`);
-    const report = await runScenario(scenario, {
-      scenarioFile,
-      headed: args.includes('--headed'),
-      outputDir: option(args, '--output'),
-    });
-    for (const step of report.steps) {
-      const icon = step.status === 'passed' ? '✓' : '✗';
-      process.stdout.write(`${icon} ${step.id} · ${step.action} · ${step.durationMs}ms\n`);
+    if (command === 'validate') {
+      process.stdout.write(json ? `${JSON.stringify({ valid: true, name: scenario.name, steps: scenario.steps.length })}\n` : `✓ ${scenario.name}: ${scenario.steps.length} steps are valid\n`);
+      return;
     }
-    process.stdout.write(`\n${report.status === 'passed' ? 'PASSED' : 'FAILED'} · ${report.durationMs}ms\n`);
-    process.stdout.write(`Evidence: ${report.artifacts.directory}\n`);
-    if (report.error) process.stdout.write(`Error: ${report.error.message}\n`);
-    if (report.status === 'failed') process.exitCode = 1;
+    printReport(await runScenario(scenario, { scenarioFile, headed: values.headed, outputDir: values.output }), json);
     return;
   }
-
-  throw new Error(`Unknown command: ${command}`);
+  throw new Error(`Unknown command: ${command}. Run flowcheck --help.`);
 }
 
 main().catch((error: unknown) => {
-  if (error instanceof ScenarioValidationError) {
-    process.stderr.write(`${error.message}\n`);
-  } else {
-    process.stderr.write(`FlowCheck error: ${error instanceof Error ? error.message : String(error)}\n`);
-  }
+  const message = error instanceof Error ? error.message : String(error);
+  if (process.argv.includes('--json')) process.stdout.write(`${JSON.stringify({ status: 'error', error: message })}\n`);
+  else process.stderr.write(`FlowCheck error: ${message}\n`);
   process.exitCode = 2;
 });

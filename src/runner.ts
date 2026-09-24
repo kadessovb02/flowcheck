@@ -2,6 +2,7 @@ import { createHash, randomUUID } from 'node:crypto';
 import { mkdir, readFile, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import { chromium, type Browser, type BrowserContext, type Locator, type Page } from 'playwright';
+import { ensureBrowser } from './browser.ts';
 import { publicStep, type Scenario, type ScenarioStep, type Target, validateScenario } from './schema.ts';
 
 export interface StepReport {
@@ -79,7 +80,8 @@ async function executeStep(page: Page, scenario: Scenario, step: ScenarioStep): 
   if (step.action === 'goto') {
     const destination = new URL(step.path, scenario.baseUrl);
     if (destination.origin !== new URL(scenario.baseUrl).origin) throw new Error(`Cross-origin navigation is blocked: ${destination.origin}`);
-    await page.goto(destination.href, { waitUntil: 'domcontentloaded' });
+    const response = await page.goto(destination.href, { waitUntil: 'domcontentloaded' });
+    if (response && response.status() >= 400) throw new Error(`Navigation failed with HTTP ${response.status()}: ${destination.href}`);
     return;
   }
   if (step.action === 'assertText') {
@@ -135,7 +137,8 @@ export async function runScenario(rawScenario: Scenario, options: RunOptions = {
   const startedAt = new Date();
   const timeout = scenario.timeoutMs ?? 15_000;
   const ownBrowser = !options.browser;
-  const browser = options.browser ?? await chromium.launch({ headless: !options.headed });
+  if (ownBrowser) await ensureBrowser();
+  const browser = options.browser ?? await chromium.launch({ headless: !options.headed, channel: 'chromium' });
   let context: BrowserContext | undefined;
   let page: Page | undefined;
   const steps: StepReport[] = [];

@@ -1,0 +1,45 @@
+name: Release
+
+on:
+  push:
+    tags: ['v*']
+
+permissions:
+  contents: read
+
+jobs:
+  package:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22.18.0
+          cache: npm
+      - name: Verify tag matches package version
+        run: test "$GITHUB_REF_NAME" = "v$(node -p 'require("./package.json").version')"
+      - uses: gitleaks/gitleaks-action@v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITLEAKS_ENABLE_COMMENTS: false
+      - run: npm ci
+      - run: npx playwright install --with-deps chromium
+      - run: npm run check
+      - run: npm run test:package
+      - run: npm audit --omit=dev --audit-level=high
+      - name: Build release package
+        run: |
+          mkdir release
+          npm pack --pack-destination release
+          mv release/flowcheck-local-*.tgz release/flowcheck.tgz
+          cd release
+          sha256sum flowcheck.tgz > SHA256SUMS
+      - name: Publish tested package
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: gh release create "$GITHUB_REF_NAME" release/flowcheck.tgz release/SHA256SUMS --verify-tag --title "FlowCheck Local $GITHUB_REF_NAME" --notes-file docs/release-notes.md

@@ -37,7 +37,7 @@ test('quickstart catches a broken form with the same scenario and saves failure 
   const broken = await quickstart(['--broken']);
   assert.equal(broken.code, 1, broken.stderr);
   const failed = await reportFrom(broken.stdout);
-  assert.equal(failed.scenario.sha256, passed.scenario.sha256);
+  assert.deepEqual(failed.steps.slice(0, 4).map((step) => step.input), passed.steps.slice(0, 4).map((step) => step.input));
   assert.equal(failed.status, 'failed');
   assert.equal(failed.error?.stepId, 'confirmation');
   assert.deepEqual(failed.steps.map((step) => step.status), ['passed', 'passed', 'passed', 'passed', 'failed']);
@@ -52,7 +52,7 @@ test('quickstart catches a broken form with the same scenario and saves failure 
   assert.match(await readFile(path.join(failed.artifacts.directory, failed.artifacts.junit), 'utf8'), /failures="1"/);
 });
 
-test('quickstart refuses to run against an unrelated server on the demo port', async (t) => {
+test('quickstart chooses a free port when 4173 is occupied', async (t) => {
   let requests = 0;
   const server = http.createServer((_request, response) => {
     requests += 1;
@@ -64,16 +64,16 @@ test('quickstart refuses to run against an unrelated server on the demo port', a
   });
   t.after(() => new Promise<void>((resolve) => server.close(() => resolve())));
   const result = await quickstart();
-  assert.equal(result.code, 2);
-  assert.match(result.stderr, /port 4173 is in use/);
-  assert.doesNotMatch(result.stdout, /Evidence:/);
+  assert.equal(result.code, 0, result.stderr);
+  const report = await reportFrom(result.stdout);
+  assert.notEqual(report.baseUrl, 'http://127.0.0.1:4173');
   assert.equal(requests, 0);
 });
 
 test('quickstart rejects unknown flags before starting the demo', async () => {
   const result = await quickstart(['--brokn']);
   assert.equal(result.code, 2);
-  assert.match(result.stderr, /Unknown option: --brokn/);
+  assert.match(result.stderr, /Unknown option.*--brokn/);
   assert.doesNotMatch(result.stdout, /Demo:/);
 });
 

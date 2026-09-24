@@ -176,3 +176,49 @@ export function publicStep(step: ScenarioStep): Record<string, unknown> {
     valueFromEnv: step.valueFromEnv,
   };
 }
+
+// Exposed to MCP clients so agents can construct scenarios without reading a file.
+const stringInput = { type: 'string', minLength: 1, maxLength: 2_000 };
+const targetInput = {
+  type: 'object', additionalProperties: false,
+  properties: {
+    role: { type: 'string', enum: [...validRoles] },
+    name: stringInput, label: stringInput, placeholder: stringInput,
+    testId: stringInput, text: stringInput, css: stringInput, exact: { type: 'boolean' },
+  },
+  oneOf: selectorKeys.map((key) => ({ required: [key] })),
+};
+function actionInput(action: string, fields: Record<string, unknown>, required: string[] = [], extra: Record<string, unknown> = {}) {
+  return {
+    type: 'object', additionalProperties: false,
+    properties: { id: { type: 'string', pattern: '^[a-zA-Z0-9][a-zA-Z0-9_-]*$', maxLength: 80 }, description: { type: 'string' }, action: { const: action }, ...fields },
+    required: ['id', 'action', ...required], ...extra,
+  };
+}
+export const scenarioInputSchema = {
+  type: 'object', additionalProperties: false, required: ['version', 'name', 'baseUrl', 'steps'],
+  properties: {
+    version: { const: 1 }, name: { type: 'string', minLength: 1, maxLength: 160 },
+    baseUrl: { ...stringInput, description: 'Absolute HTTP(S) URL for the application, e.g. http://localhost:3000.' },
+    timeoutMs: { type: 'integer', minimum: 500, maximum: 120_000 },
+    evidence: {
+      type: 'object', additionalProperties: false,
+      properties: {
+        screenshots: { enum: ['always', 'on-failure', 'off'] }, trace: { type: 'boolean' },
+        mask: { type: 'array', maxItems: 20, items: targetInput },
+      },
+    },
+    steps: {
+      type: 'array', minItems: 1, maxItems: 200,
+      items: { oneOf: [
+        actionInput('goto', { path: stringInput }, ['path']),
+        ...['click', 'check', 'uncheck', 'waitFor', 'assertVisible'].map((action) => actionInput(action, { target: targetInput }, ['target'])),
+        actionInput('fill', { target: targetInput, value: { type: 'string' }, valueFromEnv: { type: 'string', minLength: 1, maxLength: 160 }, sensitive: { type: 'boolean' } }, ['target'], { oneOf: [{ required: ['value'] }, { required: ['valueFromEnv'] }] }),
+        actionInput('select', { target: targetInput, value: stringInput }, ['target', 'value']),
+        actionInput('press', { target: targetInput, key: { type: 'string', minLength: 1, maxLength: 80 } }, ['target', 'key']),
+        actionInput('assertText', { text: stringInput, exact: { type: 'boolean' } }, ['text']),
+        actionInput('assertUrl', { pattern: stringInput }, ['pattern']),
+      ] },
+    },
+  },
+};

@@ -23,7 +23,7 @@ jobs:
       - run: npm run typecheck
       - run: npm run test:unit
       - run: npm run test:e2e
-      - run: npm run build
+      - run: npm run test:package
       - name: Upload public demo evidence
         if: always()
         uses: actions/upload-artifact@v4

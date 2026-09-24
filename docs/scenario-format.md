@@ -34,7 +34,7 @@ Supported roles: `button`, `checkbox`, `combobox`, `dialog`, `heading`, `link`, 
 
 | Action | Additional fields | Behavior |
 |---|---|---|
-| `goto` | `path` | Opens a URL relative to `baseUrl` |
+| `goto` | `path` | Opens a URL relative to `baseUrl`; HTTP responses of 400 or higher fail the step |
 | `click` | `target` | Clicks one resolved element |
 | `fill` | `target`, exactly one of `value` / `valueFromEnv` | Replaces an input value |
 | `select` | `target`, `value` | Selects one option value |

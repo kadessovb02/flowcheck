@@ -70,5 +70,9 @@ const server = http.createServer((request, response) => {
   response.end(html);
 });
 
-server.listen(port, '127.0.0.1', () => process.stdout.write(`Demo: http://127.0.0.1:${port}\n`));
+server.listen(port, '127.0.0.1', () => {
+  const origin = `http://127.0.0.1:${server.address().port}`;
+  process.stdout.write(`Demo: ${origin}\n`);
+  process.send?.({ origin });
+});
 for (const signal of ['SIGINT', 'SIGTERM']) process.on(signal, () => server.close(() => process.exit(0)));
