@@ -8,20 +8,20 @@ import { publicStep, type Scenario, type ScenarioStep, type Target, validateScen
 export interface StepReport {
   id: string;
   action: string;
-  status: 'passed' | 'failed';
+  status: 'passed' | 'failed' | 'errored' | 'skipped';
   startedAt: string;
   durationMs: number;
   url: string;
   screenshot?: string;
-  error?: { name: string; message: string };
+  error?: { name: string; message: string; expected?: string; actual?: string };
   input: Record<string, unknown>;
 }
 
 export interface RunReport {
-  schemaVersion: 1;
+  schemaVersion: 2;
   runId: string;
-  scenario: { name: string; file?: string; sha256: string };
-  status: 'passed' | 'failed';
+  scenario: { name: string; version: number; file?: string; sha256: string; sourceSha256?: string };
+  status: 'passed' | 'failed' | 'errored';
   startedAt: string;
   finishedAt: string;
   durationMs: number;
@@ -29,7 +29,7 @@ export interface RunReport {
   finalUrl: string;
   steps: StepReport[];
   artifacts: { directory: string; trace?: string; junit: string; report: string };
-  error?: { stepId: string; name: string; message: string };
+  error?: { stepId?: string; name: string; message: string; expected?: string; actual?: string };
 }
 
 export interface RunOptions {
@@ -37,6 +37,18 @@ export interface RunOptions {
   outputDir?: string;
   scenarioFile?: string;
   browser?: Browser;
+  baseUrl?: string;
+}
+
+class AssertionFailure extends Error {
+  readonly expected: string;
+  readonly actual: string;
+  constructor(message: string, expected: string, actual: string) {
+    super(message);
+    this.name = 'AssertionFailure';
+    this.expected = expected;
+    this.actual = actual;
+  }
 }
 
 export async function loadScenario(file: string): Promise<Scenario> {
@@ -71,7 +83,8 @@ function wildcard(pattern: string): RegExp {
   return new RegExp(`^${escaped}$`);
 }
 
-function errorShape(error: unknown): { name: string; message: string } {
+function errorShape(error: unknown): { name: string; message: string; expected?: string; actual?: string } {
+  if (error instanceof AssertionFailure) return { name: error.name, message: error.message, expected: error.expected, actual: error.actual };
   if (error instanceof Error) return { name: error.name, message: error.message };
   return { name: 'Error', message: String(error) };
 }
@@ -85,12 +98,18 @@ async function executeStep(page: Page, scenario: Scenario, step: ScenarioStep): 
     return;
   }
   if (step.action === 'assertText') {
-    const locator = page.getByText(step.text, { exact: step.exact ?? false }).first();
+    const scope = step.target ? locatorFor(page, step.target).filter({ visible: true }) : page.locator('body');
+    const locator = scope.getByText(step.text, { exact: step.exact ?? false }).filter({ visible: true });
     await locator.waitFor({ state: 'visible' });
     return;
   }
   if (step.action === 'assertUrl') {
-    if (!wildcard(step.pattern).test(page.url())) throw new Error(`Expected URL to match "${step.pattern}", received "${page.url()}"`);
+    const pattern = step.pattern.startsWith('/') ? `${new URL(scenario.baseUrl).origin}${step.pattern}` : step.pattern;
+    try {
+      await page.waitForURL((url) => wildcard(pattern).test(url.href), { timeout: scenario.timeoutMs ?? 15_000 });
+    } catch {
+      throw new AssertionFailure(`Expected URL to match "${pattern}", received "${page.url()}"`, pattern, page.url());
+    }
     return;
   }
 
@@ -116,20 +135,25 @@ async function executeStep(page: Page, scenario: Scenario, step: ScenarioStep): 
 }
 
 function xml(value: string): string {
-  return value.replaceAll('&', '&amp;').replaceAll('<', '&lt;').replaceAll('>', '&gt;').replaceAll('"', '&quot;').replaceAll("'", '&apos;');
+  return value.replace(/[\x00-\x08\x0b\x0c\x0e-\x1f\ufffe\uffff]/g, '').replaceAll('&', '&amp;').replaceAll('<', '&lt;').replaceAll('>', '&gt;').replaceAll('"', '&quot;').replaceAll("'", '&apos;');
 }
 
-function junit(report: RunReport): string {
-  const failures = report.status === 'failed' ? 1 : 0;
+export function junit(report: RunReport): string {
+  const failures = report.steps.filter((step) => step.status === 'failed').length;
+  const errors = report.steps.filter((step) => step.status === 'errored').length + (report.status === 'errored' && !report.error?.stepId ? 1 : 0);
+  const skipped = report.steps.filter((step) => step.status === 'skipped').length;
   const cases = report.steps.map((step) => {
-    const failure = step.error ? `<failure message="${xml(step.error.message)}" type="${xml(step.error.name)}"/>` : '';
-    return `  <testcase classname="${xml(report.scenario.name)}" name="${xml(step.id)}" time="${(step.durationMs / 1_000).toFixed(3)}">${failure}</testcase>`;
+    const tag = step.status === 'failed' ? 'failure' : step.status === 'errored' ? 'error' : undefined;
+    const child = tag && step.error ? `<${tag} message="${xml(step.error.message)}" type="${xml(step.error.name)}"/>` : step.status === 'skipped' ? '<skipped/>' : '';
+    return `  <testcase classname="${xml(report.scenario.name)}" name="${xml(step.id)}" time="${(step.durationMs / 1_000).toFixed(3)}">${child}</testcase>`;
   }).join('\n');
-  return `<?xml version="1.0" encoding="UTF-8"?>\n<testsuite name="${xml(report.scenario.name)}" tests="${report.steps.length}" failures="${failures}" time="${(report.durationMs / 1_000).toFixed(3)}">\n${cases}\n</testsuite>\n`;
+  const setup = report.status === 'errored' && !report.error?.stepId ? `  <testcase classname="${xml(report.scenario.name)}" name="setup"><error message="${xml(report.error?.message ?? 'Infrastructure error')}"/></testcase>\n` : '';
+  return `<?xml version="1.0" encoding="UTF-8"?>\n<testsuite name="${xml(report.scenario.name)}" tests="${report.steps.length + (setup ? 1 : 0)}" failures="${failures}" errors="${errors}" skipped="${skipped}" time="${(report.durationMs / 1_000).toFixed(3)}">\n${setup}${cases}\n</testsuite>\n`;
 }
 
 export async function runScenario(rawScenario: Scenario, options: RunOptions = {}): Promise<RunReport> {
-  const scenario = validateScenario(rawScenario);
+  const sourceScenario = validateScenario(rawScenario);
+  const scenario = options.baseUrl === undefined ? sourceScenario : validateScenario({ ...sourceScenario, baseUrl: options.baseUrl });
   const runId = `${new Date().toISOString().replace(/[:.]/g, '-')}-${randomUUID().slice(0, 8)}`;
   const root = path.resolve(options.outputDir ?? '.flowcheck/runs');
   const artifactDir = path.join(root, runId);
@@ -137,15 +161,20 @@ export async function runScenario(rawScenario: Scenario, options: RunOptions = {
   const startedAt = new Date();
   const timeout = scenario.timeoutMs ?? 15_000;
   const ownBrowser = !options.browser;
-  if (ownBrowser) await ensureBrowser();
-  const browser = options.browser ?? await chromium.launch({ headless: !options.headed, channel: 'chromium' });
+  let browser: Browser | undefined = options.browser;
   let context: BrowserContext | undefined;
   let page: Page | undefined;
   const steps: StepReport[] = [];
   let terminalError: RunReport['error'];
+  let status: RunReport['status'] = 'passed';
   let tracePath: string | undefined;
+  let evidenceError: Error | undefined;
 
   try {
+    if (!browser) {
+      await ensureBrowser();
+      browser = await chromium.launch({ headless: !options.headed, channel: 'chromium' });
+    }
     context = await browser.newContext({ viewport: { width: 1440, height: 900 }, locale: 'en-US' });
     context.setDefaultTimeout(timeout);
     context.setDefaultNavigationTimeout(timeout);
@@ -173,10 +202,15 @@ export async function runScenario(rawScenario: Scenario, options: RunOptions = {
         if (new URL(page.url()).origin !== allowedOrigin) throw new Error(`Browser left the allowed origin: ${page.url()}`);
         if (scenario.evidence?.screenshots === 'always' && !(step.action === 'fill' && step.sensitive)) {
           screenshot = `${String(index + 1).padStart(3, '0')}-${safeFilePart(step.id)}.png`;
-          await page.screenshot({
-            path: path.join(artifactDir, screenshot), fullPage: true,
-            mask: (scenario.evidence?.mask ?? []).map((target) => locatorFor(page!, target)),
-          });
+          try {
+            await page.screenshot({
+              path: path.join(artifactDir, screenshot), fullPage: true,
+              mask: (scenario.evidence?.mask ?? []).map((target) => locatorFor(page!, target)),
+            });
+          } catch (error) {
+            evidenceError = error instanceof Error ? error : new Error(String(error));
+            throw evidenceError;
+          }
         }
         steps.push({
           id: step.id, action: step.action, status: 'passed', startedAt: stepStarted.toISOString(),
@@ -192,30 +226,46 @@ export async function runScenario(rawScenario: Scenario, options: RunOptions = {
             mask: (scenario.evidence?.mask ?? []).map((target) => locatorFor(page!, target)),
           }).catch(() => { screenshot = undefined; });
         }
+        const stepStatus = evidenceError || page.isClosed() || !browser.isConnected() ? 'errored' : 'failed';
         steps.push({
-          id: step.id, action: step.action, status: 'failed', startedAt: stepStarted.toISOString(),
+          id: step.id, action: step.action, status: stepStatus, startedAt: stepStarted.toISOString(),
           durationMs: Date.now() - stepStarted.getTime(), url: page.url(), screenshot,
           error: shaped, input: publicStep(step),
         });
         terminalError = { stepId: step.id, ...shaped };
+        status = stepStatus;
         break;
       }
     }
+  } catch (error) {
+    terminalError = errorShape(error);
+    status = 'errored';
   } finally {
     if (context && scenario.evidence?.trace !== false) {
       tracePath = 'trace.zip';
-      await context.tracing.stop({ path: path.join(artifactDir, tracePath) }).catch(() => { tracePath = undefined; });
+      try { await context.tracing.stop({ path: path.join(artifactDir, tracePath) }); }
+      catch (error) {
+        tracePath = undefined;
+        status = 'errored';
+        terminalError = errorShape(error);
+      }
     }
     await context?.close().catch(() => undefined);
-    if (ownBrowser) await browser.close().catch(() => undefined);
+    if (ownBrowser) await browser?.close().catch(() => undefined);
+  }
+
+  for (const step of scenario.steps.slice(steps.length)) {
+    steps.push({ id: step.id, action: step.action, status: 'skipped', startedAt: new Date().toISOString(),
+      durationMs: 0, url: page?.url() ?? scenario.baseUrl, input: publicStep(step) });
   }
 
   const finishedAt = new Date();
   const report: RunReport = {
-    schemaVersion: 1,
+    schemaVersion: 2,
     runId,
-    scenario: { name: scenario.name, file: options.scenarioFile, sha256: scenarioDigest(scenario) },
-    status: terminalError ? 'failed' : 'passed',
+    scenario: { name: scenario.name, version: scenario.version, file: options.scenarioFile, sha256: scenarioDigest(scenario),
+      ...(options.baseUrl === undefined ? {} : { sourceSha256: scenarioDigest(sourceScenario) }) },
+    status,
     startedAt: startedAt.toISOString(),
     finishedAt: finishedAt.toISOString(),
     durationMs: finishedAt.getTime() - startedAt.getTime(),
@@ -230,7 +280,11 @@ export async function runScenario(rawScenario: Scenario, options: RunOptions = {
     },
     error: terminalError,
   };
-  await writeFile(path.join(artifactDir, 'report.json'), `${JSON.stringify(report, null, 2)}\n`, { mode: 0o600 });
-  await writeFile(path.join(artifactDir, 'junit.xml'), junit(report), { mode: 0o600 });
+  try {
+    await writeFile(path.join(artifactDir, 'report.json'), `${JSON.stringify(report, null, 2)}\n`, { mode: 0o600 });
+    await writeFile(path.join(artifactDir, 'junit.xml'), junit(report), { mode: 0o600 });
+  } catch (error) {
+    throw new Error(`Could not write FlowCheck report in ${artifactDir}: ${error instanceof Error ? error.message : String(error)}`);
+  }
   return report;
 }

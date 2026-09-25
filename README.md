@@ -184,6 +184,18 @@ npx playwright show-trace .flowcheck/runs/<run-id>/trace.zip
 
 The [CI workflow](.github/workflows/ci.yml) exercises successful and failed runs and saves the public demo evidence.
 
+## Run reviewed journeys in CI
+
+Put several v1 scenarios under `checks/`, then run the same files locally and in CI:
+
+```bash
+npx flowcheck run 'checks/**/*.json' --base-url http://127.0.0.1:3000 --output .flowcheck/runs
+```
+
+The quoted glob is resolved by FlowCheck. Files run in lexical order with a separate Chromium context each. Failed checks and invalid files are reported while later scenarios continue; infrastructure failure skips the rest. An empty match is an error. `--base-url` changes the tested origin without editing committed scenarios. Use root-relative URL assertions to check a preview deployment's path; absolute expected URLs remain unchanged.
+
+Copy and adapt the [GitHub Actions recipe](examples/github-actions/flowcheck.yml): it starts the application, waits up to 30 seconds, runs the suite, writes a job summary, and uploads JSON/JUnit evidence even after a failed check. The recipe installs the published npm package; until this change is released, test it with a locally built package tarball. Pin a published version after verifying it. Keep CI scenarios and uploaded artifacts synthetic and reviewed.
+
 ## How it fits with Playwright
 
 FlowCheck uses Playwright underneath. Choose based on the workflow you need:
@@ -208,7 +220,9 @@ Already happy with a Playwright suite? Keep it. FlowCheck focuses on small smoke
 
 FlowCheck is an **early developer preview**, supporting Chromium on macOS and Linux. The scenario and report formats are versioned but may change before a stable release.
 
-Run checks only against systems you are authorized to test. Navigation is restricted to the scenario's origin. Prefer `valueFromEnv` for secrets and explicit screenshot masks. Masks do **not** redact traces, URLs, or error messages; treat evidence as potentially sensitive. No FlowCheck telemetry or model calls are made. npm package and browser downloads contact their distribution services.
+The report format is now `schemaVersion: 2`; consumers of v1 reports need to handle explicit skipped steps and infrastructure errors. UI timing, app state, test data, and environment still affect repeatability. FlowCheck intentionally provides a small reviewed scenario format alongside Playwright, rather than Playwright's full test framework.
+
+Run checks only against systems you are authorized to test. Navigation is restricted to the scenario's origin. Prefer `valueFromEnv` for secrets and explicit screenshot masks. Masks do **not** redact traces, URLs, or error messages; treat evidence as potentially sensitive. The browser runner makes no model calls or FlowCheck telemetry requests. The separate, opt-in `flowcheck-runtime` can send task context to Codex; see its [documentation](docs/software-engineering-runtime.md). npm package and browser downloads contact their distribution services.
 
 See [SECURITY.md](SECURITY.md) and [architecture](docs/architecture.md). The local runner works independently of any hosted FlowCheck service.
 

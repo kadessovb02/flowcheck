@@ -40,10 +40,10 @@ test('quickstart catches a broken form with the same scenario and saves failure 
   assert.deepEqual(failed.steps.slice(0, 4).map((step) => step.input), passed.steps.slice(0, 4).map((step) => step.input));
   assert.equal(failed.status, 'failed');
   assert.equal(failed.error?.stepId, 'confirmation');
-  assert.deepEqual(failed.steps.map((step) => step.status), ['passed', 'passed', 'passed', 'passed', 'failed']);
-  assert.ok(!failed.steps.some((step) => step.id === 'welcome-url'));
+  assert.deepEqual(failed.steps.map((step) => step.status), ['passed', 'passed', 'passed', 'passed', 'failed', 'skipped']);
+  assert.equal(failed.steps.at(-1)?.id, 'welcome-url');
 
-  const screenshot = failed.steps.at(-1)?.screenshot;
+  const screenshot = failed.steps.find((step) => step.status === 'failed')?.screenshot;
   assert.ok(screenshot);
   const image = await readFile(path.join(failed.artifacts.directory, screenshot));
   assert.equal(image.subarray(1, 4).toString(), 'PNG');

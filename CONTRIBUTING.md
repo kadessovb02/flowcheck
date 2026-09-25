@@ -14,6 +14,16 @@ npm run check
 
 Node.js 22.18 or newer is required.
 
+## Code map and checks
+
+- `src/schema.ts`: v1 scenario types, validation, MCP input schema.
+- `src/runner.ts`: Playwright steps, evidence, JSON/JUnit run reports.
+- `src/suite.ts` and `src/summary.ts`: ordered multi-file runs and CI summary.
+- `src/cli.ts` and `src/mcp.ts`: command and MCP adapters.
+- `tests/*.unit.test.ts`, `tests/*.e2e.test.ts`, and `scripts/test-package.mjs`: validation, browser, and installed-package checks.
+
+Run `npm run typecheck`, `npm run test:unit`, `npm run test:e2e`, then `npm run test:package`. `npm run check` runs the first three. Chromium must be installed for browser tests. For a runner regression, add a small local HTTP page in `tests/runner.e2e.test.ts`, show the failing assertion first, then implement the fix. For a CLI or suite regression, use `tests/suite.e2e.test.ts`.
+
 ## Pull requests
 
 1. Open an issue for a substantial behavior or DSL change.
@@ -33,6 +43,8 @@ Contributions are accepted under the Apache-2.0 license. By submitting a contrib
 - Evidence tied to the exact executed scenario.
 - Secrets remain references, never convenient plaintext.
 - Small dependencies and clear trust boundaries.
+
+Welcome contributions include focused regression tests, clearer diagnostics, CI examples using synthetic data, and small reporter improvements. Discuss DSL fields, report schema changes, or public API changes in an issue before coding so compatibility and migration can be reviewed. SaaS, accounts, dashboards, arbitrary shell/JavaScript in scenarios, and a general plugin framework are outside this repository's current scope.
 
 ## Reporting bugs
 

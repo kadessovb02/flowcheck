@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { execFile } from 'node:child_process';
-import { mkdtemp, realpath, mkdir, readFile, rm } from 'node:fs/promises';
+import { mkdtemp, realpath, mkdir, readFile, rm, writeFile } from 'node:fs/promises';
 import os from 'node:os';
 import http from 'node:http';
 import path from 'node:path';
@@ -47,7 +47,24 @@ try {
   } finally { await client.close(); }
   await exec('npm', ['install', '--save-dev', '--ignore-scripts', '--no-audit', '--no-fund', '--cache', path.join(temp, 'npm-cache'), packageUrl], { cwd: project });
   assert.equal((await exec('npx', ['--no-install', '--', 'flowcheck', '--version'], { cwd: project })).stdout.trim(), version);
-  console.log('Packed release verified: npx demo, project installation, version, and MCP work outside the repository.');
+  const checks = path.join(project, 'checks');
+  await mkdir(checks);
+  const scenario = { version: 1, name: 'Packed suite', baseUrl: 'http://localhost:9', evidence: { screenshots: 'off', trace: false }, steps: [
+    { id: 'open', action: 'goto', path: '/' }, { id: 'text', action: 'assertText', text: 'Package app' }, { id: 'url', action: 'assertUrl', pattern: '/' },
+  ] };
+  await writeFile(path.join(checks, 'first.json'), JSON.stringify(scenario));
+  const app = http.createServer((_request, response) => { response.setHeader('content-type', 'text/html'); response.end('<p>Package app</p>'); });
+  try {
+    await new Promise((resolve) => app.listen(0, '127.0.0.1', resolve));
+    const baseUrl = `http://127.0.0.1:${app.address().port}`;
+    const suite = await exec('npx', ['--no-install', 'flowcheck', 'run', 'checks/*.json', '--base-url', baseUrl, '--json'], { cwd: project });
+    const report = JSON.parse(suite.stdout);
+    assert.equal(report.kind, 'suite');
+    assert.equal(report.counts.passed, 1);
+    assert.equal(report.cases[0].report.baseUrl, baseUrl);
+    assert.match(await readFile(path.join(report.artifacts.directory, 'junit.xml'), 'utf8'), /testsuites/);
+  } finally { await new Promise((resolve) => app.close(resolve)); }
+  console.log('Packed release verified: npx demo, installed suite with base URL override, version, and MCP work outside the repository.');
 } finally {
   if (packageServer) await new Promise((resolve) => packageServer.close(resolve));
   await rm(temp, { recursive: true, force: true });

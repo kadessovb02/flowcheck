@@ -42,10 +42,16 @@ Supported roles: `button`, `checkbox`, `combobox`, `dialog`, `heading`, `link`, 
 | `press` | `target`, `key` | Sends a Playwright key such as `Enter` |
 | `waitFor` | `target` | Waits until the target is visible |
 | `assertVisible` | `target` | Requires the target to be visible |
-| `assertText` | `text`, optional `exact` | Requires visible page text |
-| `assertUrl` | `pattern` | Matches the complete URL; `*` is a wildcard |
+| `assertText` | `text`, optional `exact`, optional `target` | Waits for exactly one visible matching text node, optionally inside one visible target |
+| `assertUrl` | `pattern` | Waits for a URL match until `timeoutMs`; `*` is a wildcard |
 
 Every step requires a unique slug in `id`.
+
+`assertText` searches the page when `target` is omitted. With `target`, it searches that single visible container's descendants. Hidden matches do not count. Multiple visible matches fail as ambiguous. `exact` defaults to `false` for asserted text: `false` permits a substring; `true` requires the whole element text. Target selector `exact` still defaults to `true`. Use a scope such as `{ "testId": "checkout-confirmation" }` when the same text appears in several components.
+
+`assertUrl` matches a complete URL. An absolute pattern stays absolute even with `--base-url`; a root-relative pattern such as `/welcome` uses the effective base URL's origin. Other relative strings retain the v1 complete-URL matching behavior. A `goto` path resolves against the effective base URL and cannot leave its origin.
+
+Unknown fields, invalid optional field types, duplicate step IDs, and ambiguous selectors are rejected. The published MCP JSON Schema covers the structural contract; the runtime additionally checks URL parsing and uniqueness across step IDs, which standard per-item schema rules cannot express here.
 
 ## Secrets
 
@@ -77,10 +83,18 @@ Prefer environment variables:
 
 Screenshot modes are `always`, `on-failure`, and `off`. Trace defaults to enabled. Evidence is written locally under `.flowcheck/runs/` unless `--output` overrides the directory.
 
+Masks affect screenshots only. Traces, URLs, network traffic, and diagnostic messages can contain sensitive data. Inspect artifacts before uploading them. The CLI does not upload evidence automatically.
+
+## Suites and reports
+
+`flowcheck run` accepts one file, a directory of `.json` files, or a quoted glob. Suite files run sequentially in lexical path order, each in a fresh browser context. A failed assertion does not stop later files; an invalid file is recorded as `errored` and later files still run. If the browser or artifact storage fails, remaining files are `skipped`. Empty matches return exit code `2`.
+
+`--base-url` changes the effective target for this run without editing source JSON. The actual URL and both source and executed scenario digests are saved in each report. A single-file run retains the single-report CLI JSON shape. A suite writes `suite.json` and an aggregate `junit.xml` alongside per-scenario reports. Report `schemaVersion` is `2`: steps can be `passed`, `failed`, `errored`, or `skipped`, and a run can be `passed`, `failed`, or `errored`. The scenario DSL remains version `1`.
+
 ## Exit codes
 
 | Code | Meaning |
 |---:|---|
 | `0` | Scenario passed |
 | `1` | A browser step or assertion failed |
-| `2` | Invalid input, invalid scenario, or runtime setup error |
+| `2` | Invalid input, invalid scenario, or infrastructure error |

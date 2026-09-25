@@ -113,14 +113,14 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
         headed: args.headed === true,
         outputDir: path.join(workspaceRoot, '.flowcheck', 'runs'),
       });
-      return text(summary(latestReport), latestReport.status === 'failed');
+      return text(summary(latestReport), latestReport.status !== 'passed');
     }
     if (request.params.name === 'flowcheck_check_page') {
       if (typeof args.url !== 'string' || (args.text !== undefined && typeof args.text !== 'string')) throw new Error('url and optional text must be strings');
       latestReport = await runScenario(pageScenario(args.url, args.text as string | undefined), {
         headed: args.headed === true, outputDir: path.join(workspaceRoot, '.flowcheck', 'runs'),
       });
-      return text(summary(latestReport), latestReport.status === 'failed');
+      return text(summary(latestReport), latestReport.status !== 'passed');
     }
     if (request.params.name === 'flowcheck_latest_report') {
       return latestReport ? text(summary(latestReport)) : text('No scenario has been run in this MCP session.', true);

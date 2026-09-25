@@ -1,0 +1,65 @@
+name: FlowCheck journeys
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  journeys:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22.18.0'
+          cache: npm
+      - run: npm ci
+      # Install a published FlowCheck version when suite support has been released.
+      # Pin an exact version in a real project after verifying it.
+      - run: npm install --no-save --package-lock=false @kadessovb/flowcheck@latest
+      - run: npx --no-install flowcheck setup --with-deps
+      - name: Start app and run reviewed scenarios
+        shell: bash
+        run: |
+          set -euo pipefail
+          # Replace this command and URL with your app's trusted CI start command.
+          npm run dev -- --host 127.0.0.1 --port 3000 > app.log 2>&1 &
+          app_pid=$!
+          trap 'kill "$app_pid" 2>/dev/null || true; wait "$app_pid" 2>/dev/null || true' EXIT
+          ready=0
+          for attempt in {1..30}; do
+            if curl --fail --silent --output /dev/null http://127.0.0.1:3000/; then
+              ready=1
+              break
+            fi
+            sleep 1
+          done
+          if [[ "$ready" -ne 1 ]]; then
+            printf '## FlowCheck\n\nApplication readiness timed out after 30 seconds.\n' >> "$GITHUB_STEP_SUMMARY"
+            exit 2
+          fi
+          set +e
+          npx --no-install flowcheck run 'checks/**/*.json' \
+            --base-url http://127.0.0.1:3000 \
+            --output .flowcheck/runs \
+            --summary "$GITHUB_STEP_SUMMARY"
+          result=$?
+          set -e
+          exit "$result"
+      # Review these outputs before enabling upload for a real app. The sample
+      # checks should use synthetic data; traces/screenshots are omitted here.
+      - name: Upload reviewed JSON and JUnit evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: flowcheck-results
+          path: |
+            .flowcheck/runs/**/*.json
+            .flowcheck/runs/**/*.xml
+          include-hidden-files: true
+          if-no-files-found: warn
+          retention-days: 7
