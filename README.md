@@ -31,6 +31,8 @@ FlowCheck Local replays a JSON scenario in Chromium and saves a pass/fail report
 
 **Runs on localhost. No FlowCheck account, API key, or model call required by the runner.**
 
+An optional [software engineering runtime](docs/software-engineering-runtime.md) is available as a separate CLI. It can invoke Codex for code changes; browser checks remain deterministic.
+
 ```text
 You or your agent → reviewable JSON scenario → Chromium → pass/fail + evidence
 ```

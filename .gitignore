@@ -1,6 +1,7 @@
 node_modules/
 dist/
 .flowcheck/
+.code-review-graph/
 playwright-report/
 test-results/
 .env

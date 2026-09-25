@@ -1,0 +1,14 @@
+{
+  "id": "browser-regression",
+  "description": "Verify browser behavior after a FlowCheck change",
+  "triggers": ["browser", "navigation", "scenario"],
+  "requires": ["playwright"],
+  "dependencies": ["verification-before-completion"],
+  "inputs": ["changed_files", "scenario"],
+  "outputs": ["verification_results"],
+  "tools": ["flowcheck", "code-graph"],
+  "verification": ["test:e2e"],
+  "risk": "medium",
+  "estimatedTokens": 45,
+  "instructions": "Run the focused scenario and browser tests after editing browser execution or navigation. Report the actual failed step and evidence path."
+}

@@ -26,6 +26,8 @@ This repository owns local deterministic execution: DSL, validation, browser int
 
 The hosted FlowCheck service may create and approve scenarios, coordinate teams, schedule runs, store evidence, analyze product coverage, and manage verified fixes. The local runner does not require those services and does not contain their implementation.
 
+The opt-in software engineering CLI is described in [software-engineering-runtime.md](software-engineering-runtime.md). It does not change browser scenario execution or MCP trust boundaries.
+
 ## Non-goals
 
 - autonomous crawling or AI planning;

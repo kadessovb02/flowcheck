@@ -8,12 +8,15 @@
     "node": ">=22.18"
   },
   "bin": {
-    "flowcheck": "dist/src/cli.js"
+    "flowcheck": "dist/src/cli.js",
+    "flowcheck-runtime": "dist/src/runtime/cli.js"
   },
   "files": [
     "dist/src",
     "examples/demo",
     "docs/scenario-format.md",
+    "docs/software-engineering-runtime.md",
+    "docs/runtime-trace.jsonl",
     "README.md",
     "README.ru.md",
     "LICENSE",
